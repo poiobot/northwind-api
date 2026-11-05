@@ -1,1 +1,3 @@
-database/
+/database/
+venv/
+__pycache__/
