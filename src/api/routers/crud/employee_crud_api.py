@@ -18,8 +18,8 @@ router = APIRouter()
 handler = EmployeeCrudCTL()
 
 # Reference fields that ?expand= can replace with the referenced documents
-EXPANDABLE = ()
-EXPAND_HELP = "Comma-separated reference fields to replace with the referenced documents: none"
+EXPANDABLE = ("ReportsTo",)
+EXPAND_HELP = "Comma-separated reference fields to replace with the referenced documents: ReportsTo"
 
 
 @router.post(path="/northwind/employees", response_model=Employee, response_model_by_alias=False, status_code=status.HTTP_201_CREATED)

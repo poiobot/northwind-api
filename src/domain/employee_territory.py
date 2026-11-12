@@ -7,9 +7,8 @@ from datetime import datetime, timezone
 
 class EmployeeTerritory(BaseModel):
 	model_config = ConfigDict(populate_by_name=True)
-	id: Optional[int] = Field(default=None, alias="_id", json_schema_extra={"table": "employee_territories"})
-	employeeID: Union[int, "Employee"] = Field(default=None, json_schema_extra={"table": "employees"})
-	territoryID: int = 0
-	version: int = Field(default=1, alias="_version")
-	created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_created")
-	updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_updated")
+	# The primary key is (EmployeeID, TerritoryID), so id is not a column: it only carries the table name
+	# GenericDAO reads, and exclude=True keeps it out of the dumped record
+	id: Optional[Any] = Field(default=None, exclude=True, json_schema_extra={"table": "EmployeeTerritories"})
+	EmployeeID: Union[int, "Employee"] = Field(default=None, json_schema_extra={"table": "Employees"})
+	TerritoryID: str = Field(default=None, json_schema_extra={"table": "Territories"})

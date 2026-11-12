@@ -7,8 +7,5 @@ from datetime import datetime, timezone
 
 class Region(BaseModel):
 	model_config = ConfigDict(populate_by_name=True)
-	id: Optional[int] = Field(default=None, alias="_id", json_schema_extra={"table": "regions"})
-	regionDescription: str = None
-	version: int = Field(default=1, alias="_version")
-	created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_created")
-	updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_updated")
+	id: Optional[int] = Field(default=None, alias="RegionID", json_schema_extra={"table": "Regions"})
+	RegionDescription: str = None

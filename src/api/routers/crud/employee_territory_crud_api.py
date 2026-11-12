@@ -18,8 +18,8 @@ router = APIRouter()
 handler = EmployeeTerritoryCrudCTL()
 
 # Reference fields that ?expand= can replace with the referenced documents
-EXPANDABLE = ("employeeID",)
-EXPAND_HELP = "Comma-separated reference fields to replace with the referenced documents: employeeID"
+EXPANDABLE = ("EmployeeID", "TerritoryID",)
+EXPAND_HELP = "Comma-separated reference fields to replace with the referenced documents: EmployeeID, TerritoryID"
 
 
 @router.post(path="/northwind/employee_territories", response_model=EmployeeTerritory, response_model_by_alias=False, status_code=status.HTTP_201_CREATED)
