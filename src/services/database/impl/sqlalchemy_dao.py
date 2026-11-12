@@ -7,7 +7,7 @@ from uuid import uuid4
 from api import settings
 
 
-class SqlDAO(DAOInterface):
+class SqlAlchemyDAO(DAOInterface):
     """
     Single DAO implementation for all SQL databases (SQLite, PostgreSQL, MySQL, Oracle)
     using SQLAlchemy Core.

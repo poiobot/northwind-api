@@ -1,6 +1,6 @@
 from services.database.dao_interface import IDatabaseService, DAOInterface
 from services.database.impl.mongo_dao import MongoDAO
-from services.database.impl.sql_dao import SqlDAO
+from services.database.impl.sqlalchemy_dao import SqlAlchemyDAO
 
 
 class DatabaseConnectionManager(IDatabaseService):
@@ -10,7 +10,7 @@ class DatabaseConnectionManager(IDatabaseService):
             case 'mongo' | 'mongodb':
                 return MongoDAO(dbname=dbname, credentials=credentials)
             case 'sqlite' | 'sqlite3':
-                return SqlDAO(dbname=dbname, dbtype=dbtype, **credentials)
+                return SqlAlchemyDAO(dbname=dbname, dbtype=dbtype, **credentials)
             # case 'oracle':
             #     return OracleDAO(...)
 
