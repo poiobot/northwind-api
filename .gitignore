@@ -1,1 +1,4 @@
 database/
+.env
+venv/
+.venv/
