@@ -107,3 +107,12 @@ class GenericDAO:
         :return: The type depends on the query
         """
         pass
+
+
+if __name__ == "__main__":
+
+    from domain.customer import Customer
+
+    dao = GenericDAO(dbtype="sqlite3", dbname="../../database/sqlite/northwind.db")
+
+    print(dao.find_by_id(entity=Customer, id="ALFKI"))

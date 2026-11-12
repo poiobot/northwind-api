@@ -16,7 +16,7 @@ class Address(BaseModel):
 
 class Customer(BaseModel):
 	model_config = ConfigDict(populate_by_name=True)
-	id: Optional[str] = Field(default=None, alias="_id", json_schema_extra={"table": "customers"})
+	id: Optional[str] = Field(default=None, alias="CustomerID", json_schema_extra={"table": "customers"})
 	companyName: str = None
 	contactName: str = None
 	contactTitle: str = None
