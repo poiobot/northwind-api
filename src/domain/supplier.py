@@ -5,17 +5,22 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, timezone
 
 
+class Address(BaseModel):
+	model_config = ConfigDict(populate_by_name=True)
+	street: Optional[str] = None
+	city: Optional[str] = None
+	region: Optional[str] = None
+	postalCode: Optional[Union[float, str]] = None
+	country: Optional[str] = None
+	phone: Optional[Union[float, str]] = None
+
 class Supplier(BaseModel):
 	model_config = ConfigDict(populate_by_name=True)
-	id: Optional[int] = Field(default=None, alias="SupplierID", json_schema_extra={"table": "Suppliers"})
-	CompanyName: str = None
-	ContactName: Optional[str] = None
-	ContactTitle: Optional[str] = None
-	Address: Optional[str] = None
-	City: Optional[str] = None
-	Region: Optional[str] = None
-	PostalCode: Optional[str] = None
-	Country: Optional[str] = None
-	Phone: Optional[str] = None
-	Fax: Optional[str] = None
-	HomePage: Optional[str] = None
+	id: Optional[int] = Field(default=None, alias="_id", json_schema_extra={"table": "suppliers"})
+	companyName: Optional[str] = None
+	contactName: Optional[str] = None
+	contactTitle: Optional[str] = None
+	address: Optional[Address] = None
+	version: int = Field(default=1, alias="_version")
+	created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_created")
+	updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="_updated")

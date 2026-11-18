@@ -1,5 +1,5 @@
 from services.database.dao_interface import DAOInterface
-from sqlalchemy import create_engine, MetaData, Table, text, inspect, and_, or_, Integer
+from sqlalchemy import create_engine, MetaData, Table, text, inspect, and_, or_, Integer, JSON
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Any
 from uuid import uuid4
@@ -15,6 +15,9 @@ class SqlAlchemyDAO(DAOInterface):
     Works on Spore-shaped tables (a text _id plus _version/_created/_updated/_state) and on
     plain schemas: integer keys the database assigns, composite keys, names that need
     quoting, and no bookkeeping columns. Bookkeeping is written only where its column exists.
+
+    JSON columns hold embedded documents and arrays, as MongoDB does, and read back as dicts
+    and lists. expand puts the referenced row under the reference field, as MongoDAO does.
     """
 
     ops = {
@@ -24,6 +27,8 @@ class SqlAlchemyDAO(DAOInterface):
     }
 
     bookkeeping = ("_version", "_created", "_updated", "_state")
+
+    expand_batch = 500  # referenced keys per query; Oracle takes at most 1000 values in an IN list
 
     def __init__(self, dbname: str, dbtype: str, **credentials):
         self.dbname = dbname
@@ -73,11 +78,6 @@ class SqlAlchemyDAO(DAOInterface):
             Table(table_name, self.metadata, autoload_with=self.engine)
         return self.metadata.tables[table_name]
 
-    def _get_pk_column(self, table: Table) -> str:
-        """Get the primary key column name for a table."""
-        pk_cols = [c.name for c in table.primary_key.columns]
-        return pk_cols[0] if pk_cols else '_id'
-
     def _row_to_dict(self, row) -> Dict:
         """Convert a SQLAlchemy Row to a dictionary."""
         return dict(row._mapping)
@@ -122,6 +122,54 @@ class SqlAlchemyDAO(DAOInterface):
             raise ValueError(f"{table.name} has a composite primary key ({', '.join(cols)}); "
                              f"'_id' can't stand for it")
         return cols[0]
+
+    def _json_columns(self, table: Table) -> Dict:
+        """{name: type} of the table's JSON columns. A text() query hands them back as the stored
+        text; declaring their types on the query makes SQLAlchemy parse them into dicts and lists."""
+        return {c.name: c.type for c in table.columns if isinstance(c.type, JSON)}
+
+    @staticmethod
+    def _listed(value) -> List:
+        """The references a list field holds: none for NULL, one for a single value."""
+        return value if isinstance(value, list) else [] if value is None else [value]
+
+    def _rows_by_key(self, table: str, ids: List) -> Dict:
+        """{key: row} for the rows of table whose primary key is in ids, expand_batch keys per query."""
+        key = self._column(self._get_table(table), "_id")
+        found = {}
+        for start in range(0, len(ids), self.expand_batch):
+            for row in self.fetch(table, query=[("_id", "in", ids[start:start + self.expand_batch])]):
+                found[row[key]] = row
+        return found
+
+    def _expand(self, rows: List[Dict], expand: List[str], meta: Dict) -> None:
+        """Replace each expanded reference in rows with the row it points to, as MongoDAO's
+        $lookup does.
+
+        The referenced rows come from their own query, not from a join, so a row keeps its own
+        columns when both tables have the same names (_id, name). A reference that matches no
+        row is left out, as $unwind with preserveNullAndEmptyArrays does. A list of references
+        (a JSON column) becomes the list of rows found, in the listed order. A reference the
+        query's keys left out is not expanded.
+        """
+        references = meta.get("references", {})
+        for key in expand:
+            if key not in references:
+                continue
+            ref = references[key]
+            is_array = ref.get("is_array", False)
+            listed = [value for row in rows if key in row
+                      for value in (self._listed(row[key]) if is_array else [row[key]])]
+            found = self._rows_by_key(ref["table"], [v for v in dict.fromkeys(listed) if v is not None])
+            for row in rows:
+                if key not in row:
+                    continue
+                if is_array:
+                    row[key] = [dict(found[v]) for v in dict.fromkeys(self._listed(row[key])) if v in found]
+                elif row[key] in found:
+                    row[key] = dict(found[row[key]])
+                else:
+                    del row[key]
 
     def _drop_absent_bookkeeping(self, table: Table, record: Dict) -> Dict:
         """Copy of record without the Spore bookkeeping fields this table has no column for."""
@@ -267,17 +315,6 @@ class SqlAlchemyDAO(DAOInterface):
         columns = "*" if keys == "*" else ", ".join(f"{t}.{self._q(k)}" for k in keys)
         sql = f"SELECT {columns} FROM {t}"
 
-        # Handle expand (JOINs)
-        if expand and meta:
-            for key in expand:
-                if key not in meta.get("references", {}):
-                    continue
-                ref = meta["references"][key]
-                ref_table = ref["table"]
-                ref_pk = self._get_pk_column(self._get_table(ref_table))
-                r = self._q(ref_table)
-                sql += f" LEFT JOIN {r} ON {t}.{self._q(key)} = {r}.{self._q(ref_pk)}"
-
         # Build WHERE clause
         params = {}
         query = query or []
@@ -319,8 +356,12 @@ class SqlAlchemyDAO(DAOInterface):
                 sql += " ORDER BY " + ", ".join(order_parts)
 
         with self.engine.connect() as conn:
-            result = conn.execute(text(sql), params)
-            return [self._row_to_dict(row) for row in result]
+            result = conn.execute(text(sql).columns(**self._json_columns(tbl)), params)
+            rows = [self._row_to_dict(row) for row in result]
+
+        if expand and meta:
+            self._expand(rows, expand, meta)
+        return rows
 
     def delete(self, table: str, id: Any, physical_delete: bool = True) -> bool:
         tbl = self._get_table(table)
